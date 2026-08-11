@@ -162,6 +162,106 @@ app.post('/payment', (req, res) => {
   res.json({ status: 'processed' });
 });
 
+// ----------------------------------------------------------------
+// CORS MISCONFIGURATION (SAST Vulnerability #13)
+// ----------------------------------------------------------------
+app.use((req, res, next) => {
+  // Wildcard origin combined with credentials — CORS bypass
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', '*');
+  next();
+});
+
+// ----------------------------------------------------------------
+// WEAK CRYPTOGRAPHY — MD5 password hashing (SAST Vulnerability #14)
+// ----------------------------------------------------------------
+const crypto = require('crypto');
+
+app.post('/register', (req, res) => {
+  const { username, password } = req.body;
+  // MD5 is cryptographically broken — trivially reversible via rainbow tables
+  const hashedPassword = crypto.createHash('md5').update(password).digest('hex');
+  const query = `INSERT INTO users (username, password) VALUES ('${username}', '${hashedPassword}')`;
+  db.query(query, (err) => {
+    if (err) return res.status(500).send(err.message);
+    res.json({ status: 'registered' });
+  });
+});
+
+// ----------------------------------------------------------------
+// TIMING ATTACK — non-constant-time secret comparison (SAST Vulnerability #15)
+// ----------------------------------------------------------------
+const ADMIN_TOKEN = 'super-secret-admin-token';
+
+app.get('/admin', (req, res) => {
+  const token = req.headers['x-admin-token'];
+  // == comparison leaks timing info — use crypto.timingSafeEqual instead
+  if (token === ADMIN_TOKEN) {
+    res.json({ secret: 'admin panel data' });
+  } else {
+    res.status(403).send('Forbidden');
+  }
+});
+
+// ----------------------------------------------------------------
+// INSECURE FILE UPLOAD — no type or size validation (SAST Vulnerability #16)
+// ----------------------------------------------------------------
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' }); // no file type or size limits
+
+app.post('/upload', upload.single('file'), (req, res) => {
+  // Any file type accepted, including .js, .php, .sh — Remote Code Execution risk
+  res.json({ filename: req.file.originalname, path: req.file.path });
+});
+
+// ----------------------------------------------------------------
+// MASS ASSIGNMENT (SAST Vulnerability #17)
+// ----------------------------------------------------------------
+app.post('/update-profile', (req, res) => {
+  const userId = req.query.id;
+  // Spreads all user-supplied fields directly into the UPDATE — attacker can set role/isAdmin
+  const fields = Object.keys(req.body).map(k => `${k} = '${req.body[k]}'`).join(', ');
+  const query = `UPDATE users SET ${fields} WHERE id = ${userId}`;
+  db.query(query, (err) => {
+    if (err) return res.status(500).send(err.message);
+    res.json({ status: 'updated' });
+  });
+});
+
+// ----------------------------------------------------------------
+// MISSING SECURITY HEADERS — Clickjacking / MIME sniffing (SAST Vulnerability #18)
+// ----------------------------------------------------------------
+app.get('/dashboard', (req, res) => {
+  // No X-Frame-Options, no Content-Security-Policy, no X-Content-Type-Options
+  res.send('<html><body><h1>Admin Dashboard</h1></body></html>');
+});
+
+// ----------------------------------------------------------------
+// XML EXTERNAL ENTITY (XXE) INJECTION (SAST Vulnerability #19)
+// ----------------------------------------------------------------
+const { DOMParser } = require('@xmldom/xmldom');
+
+app.post('/parse-xml', (req, res) => {
+  const xmlInput = req.body.xml;
+  // External entity resolution not disabled — XXE allows file read / SSRF
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlInput, 'text/xml');
+  res.send(doc.toString());
+});
+
+// ----------------------------------------------------------------
+// UNVALIDATED REDIRECT VIA HOST HEADER (SAST Vulnerability #20)
+// ----------------------------------------------------------------
+app.post('/reset-password', (req, res) => {
+  const host = req.headers['host'];
+  const token = crypto.randomBytes(4).toString('hex'); // weak 4-byte token
+  // Host header poisoning — reset link sent to attacker-controlled domain
+  const resetLink = `http://${host}/reset?token=${token}`;
+  console.log(`Reset link: ${resetLink}`);
+  res.json({ link: resetLink });
+});
+
 app.listen(3000, () => {
   console.log('Server running on port 3000');
 });
