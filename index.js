@@ -89,6 +89,79 @@ app.get('/fetch', async (req, res) => {
   res.send(response.data);
 });
 
+// ----------------------------------------------------------------
+// PROTOTYPE POLLUTION via lodash merge (SAST Vulnerability #7)
+// ----------------------------------------------------------------
+app.post('/merge', (req, res) => {
+  const userInput = req.body;
+  const config = {};
+  // Merging untrusted user input — Prototype Pollution via lodash merge
+  _.merge(config, userInput);
+  res.json({ config });
+});
+
+// ----------------------------------------------------------------
+// HARDCODED JWT SECRET + NO EXPIRY (SAST Vulnerability #8)
+// ----------------------------------------------------------------
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = 'mysecretkey123'; // hardcoded, weak secret
+
+app.post('/login', (req, res) => {
+  const { username } = req.body;
+  // No expiry, hardcoded secret — broken authentication
+  const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET);
+  res.json({ token });
+});
+
+app.get('/profile', (req, res) => {
+  const token = req.headers['authorization'];
+  // No algorithm validation — algorithm confusion attack possible
+  const decoded = jwt.verify(token, JWT_SECRET);
+  res.json(decoded);
+});
+
+// ----------------------------------------------------------------
+// INSECURE DIRECT OBJECT REFERENCE — IDOR (SAST Vulnerability #9)
+// ----------------------------------------------------------------
+app.get('/invoice', (req, res) => {
+  const invoiceId = req.query.id;
+  // No ownership/authorization check — any user can access any invoice
+  const query = `SELECT * FROM invoices WHERE id = '${invoiceId}'`;
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).send(err.message);
+    res.json(results);
+  });
+});
+
+// ----------------------------------------------------------------
+// OPEN REDIRECT (SAST Vulnerability #10)
+// ----------------------------------------------------------------
+app.get('/redirect', (req, res) => {
+  const target = req.query.url;
+  // No whitelist validation — Open Redirect to arbitrary external URL
+  res.redirect(target);
+});
+
+// ----------------------------------------------------------------
+// ReDoS — catastrophic backtracking regex (SAST Vulnerability #11)
+// ----------------------------------------------------------------
+app.post('/validate-email', (req, res) => {
+  const email = req.body.email;
+  // Catastrophic backtracking on malicious input — ReDoS
+  const vulnerable = /^([a-zA-Z0-9]+)+@[a-zA-Z0-9]+\.[a-zA-Z]{2,}$/.test(email);
+  res.json({ valid: vulnerable });
+});
+
+// ----------------------------------------------------------------
+// SENSITIVE DATA LOGGED TO CONSOLE (SAST Vulnerability #12)
+// ----------------------------------------------------------------
+app.post('/payment', (req, res) => {
+  const { cardNumber, cvv, amount } = req.body;
+  // Logging PII and sensitive financial data
+  console.log(`Processing payment: card=${cardNumber} cvv=${cvv} amount=${amount}`);
+  res.json({ status: 'processed' });
+});
+
 app.listen(3000, () => {
   console.log('Server running on port 3000');
 });
