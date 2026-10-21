@@ -39,7 +39,7 @@ app.get('/user', (req, res) => {
 // REFLECTED XSS (SAST Vulnerability #3)
 // ----------------------------------------------------------------
 app.get('/search', (req, res) => {
-  const term = req.query.q;
+  const term = _.escape(String(req.query.q || ''));
   // Reflecting unsanitised user input directly into HTML — XSS
   res.send(`<h1>Search Results for: ${term}</h1>`);
 });
