@@ -63,7 +63,17 @@ const path = require('path');
 app.get('/file', (req, res) => {
   const fileName = req.query.name;
   // No path sanitisation — Path Traversal (e.g. ../../etc/passwd)
-  const filePath = path.join(__dirname, 'uploads', fileName);
+  if (typeof fileName !== 'string' || !/^[A-Za-z0-9._-]+$/.test(fileName)) {
+    return res.status(400).send('Invalid file name');
+  }
+
+  const uploadsDir = path.join(__dirname, 'uploads');
+  const filePath = path.join(uploadsDir, fileName);
+
+  if (path.relative(uploadsDir, filePath).startsWith('..') || path.isAbsolute(fileName)) {
+    return res.status(400).send('Invalid file name');
+  }
+
   fs.readFile(filePath, 'utf8', (err, data) => {
     if (err) return res.status(404).send('File not found');
     res.send(data);
