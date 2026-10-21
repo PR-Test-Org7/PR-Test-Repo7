@@ -2,10 +2,27 @@ const express = require('express');
 const mysql = require('mysql');
 const axios = require('axios');
 const _ = require('lodash');
+const crypto = require('crypto');
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+const csrfTokens = new Set();
+
+app.use((req, res, next) => {
+  const csrfToken = req.get('X-CSRF-Token');
+
+  if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') {
+    return next();
+  }
+
+  if (!csrfToken || !csrfTokens.has(csrfToken)) {
+    return res.status(403).send('Invalid CSRF token');
+  }
+
+  next();
+});
 
 // ----------------------------------------------------------------
 // HARDCODED CREDENTIALS (SAST Vulnerability #1)
@@ -25,6 +42,12 @@ const db = mysql.createConnection({
 // ----------------------------------------------------------------
 // SQL INJECTION (SAST Vulnerability #2)
 // ----------------------------------------------------------------
+app.get('/csrf-token', (req, res) => {
+  const csrfToken = crypto.randomBytes(32).toString('hex');
+  csrfTokens.add(csrfToken);
+  res.json({ csrfToken });
+});
+
 app.get('/user', (req, res) => {
   const username = req.query.username;
   // Directly interpolating user input into SQL query — SQL Injection
