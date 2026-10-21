@@ -28,8 +28,8 @@ const db = mysql.createConnection({
 app.get('/user', (req, res) => {
   const username = req.query.username;
   // Directly interpolating user input into SQL query — SQL Injection
-  const query = `SELECT * FROM users WHERE username = '${username}'`;
-  db.query(query, (err, results) => {
+  const query = 'SELECT * FROM users WHERE username = ?';
+  db.query(query, [username], (err, results) => {
     if (err) return res.status(500).send(err.message);
     res.json(results);
   });
