@@ -49,9 +49,25 @@ app.get('/search', (req, res) => {
 // ----------------------------------------------------------------
 app.post('/calculate', (req, res) => {
   const expression = req.body.expr;
-  // eval() with untrusted input — Remote Code Execution / Command Injection
-  const result = eval(expression);
-  res.json({ result });
+
+  if (typeof expression !== 'string' || expression.trim() === '') {
+    return res.status(400).json({ error: 'Invalid expression' });
+  }
+
+  const sanitizedExpression = expression.replace(/\s+/g, '');
+  if (!/^[0-9+\-*/().]+$/.test(sanitizedExpression)) {
+    return res.status(400).json({ error: 'Invalid expression' });
+  }
+
+  try {
+    const result = Function(`"use strict"; return (${sanitizedExpression});`)();
+    if (!Number.isFinite(result)) {
+      return res.status(400).json({ error: 'Invalid expression' });
+    }
+    res.json({ result });
+  } catch (err) {
+    return res.status(400).json({ error: 'Invalid expression' });
+  }
 });
 
 // ----------------------------------------------------------------
