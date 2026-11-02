@@ -3,6 +3,7 @@ const mysql = require('mysql');
 const axios = require('axios');
 const _ = require('lodash');
 const app = express();
+app.disable('x-powered-by');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
