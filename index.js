@@ -30,7 +30,7 @@ app.get('/user', (req, res) => {
   // Directly interpolating user input into SQL query — SQL Injection
   const query = `SELECT * FROM users WHERE username = '${username}'`;
   db.query(query, (err, results) => {
-    if (err) return res.status(500).send(err.message);
+    if (err) return res.status(500).send('An unexpected error occurred');
     res.json(results);
   });
 });
