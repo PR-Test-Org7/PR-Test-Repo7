@@ -12,8 +12,8 @@ app.use(express.urlencoded({ extended: true }));
 // ----------------------------------------------------------------
 const DB_HOST = 'localhost';
 const DB_USER = 'admin';
-const DB_PASS = 'SuperSecret@123';   // hardcoded password
-const API_SECRET_KEY = 'sk-prod-9f8e7d6c5b4a3210fedcba9876543210'; // hardcoded API key
+const DB_PASS = process.env.DB_PASS;
+const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
 const db = mysql.createConnection({
   host: DB_HOST,
